@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logistic Regression Visualization</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body style="background-color: black; color: white;">
+
+<canvas id="regressionCanvas" width="600" height="600" style="border: 1px solid white;"></canvas>
+<br>
+<button id="blueButton">Place Blue Ball</button>
+<button id="redButton">Place Red Ball</button>
+
+<script>
+var data = [];
+var currentBallColor = 'blue'; // Default color
+
+document.addEventListener('DOMContentLoaded', function() {
+  var canvas = document.getElementById('regressionCanvas');
+  var ctx = canvas.getContext('2d');
+  var hoverPoint = null;
+
+  document.getElementById('blueButton').addEventListener('click', function() {
+    currentBallColor = 'blue';
+  });
+
+  document.getElementById('redButton').addEventListener('click', function() {
+    currentBallColor = 'red';
+  });
+
+  canvas.addEventListener('click', function(event) {
+    var rect = canvas.getBoundingClientRect();
+    var x = (event.clientX - rect.left) / (rect.right - rect.left);
+    var y = 1 - (event.clientY - rect.top) / (rect.bottom - rect.top);
+
+    var point = {x: x, y: y, color: currentBallColor};
+    data.push(point);
+    draw();
+  });
+
+  canvas.addEventListener('mousemove', function(event) {
+    var rect = canvas.getBoundingClientRect();
+    var mouseX = (event.clientX - rect.left) / (rect.right - rect.left);
+    var mouseY = 1 - (event.clientY - rect.top) / (rect.bottom - rect.top);
+
+    hoverPoint = null;
+    for (var i = 0; i < data.length; i++) {
+      var dist = Math.sqrt(Math.pow(mouseX - data[i].x, 2) + Math.pow(mouseY - data[i].y, 2));
+      if (dist < 0.02) { // Adjust this threshold as needed
+        hoverPoint = data[i];
+        break;
+      }
+    }
+    draw();
+  });
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw axes
+    ctx.strokeStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.lineTo(canvas.width, 0);
+    ctx.stroke();
+    ctx.fillText('x', canvas.width - 10, canvas.height - 10);
+    ctx.fillText('y', 10, 10);
+    
+    logisticRegression();
+    
+    // Draw points and details
+    for(var i = 0; i < data.length; i++) {
+      var x = map(data[i].x, 0, 1, 0, canvas.width);
+      var y = map(data[i].y, 0, 1, canvas.height, 0);
+      ctx.fillStyle = data[i].color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Highlight the point if hovered
+      if (hoverPoint && hoverPoint.x === data[i].x && hoverPoint.y === data[i].y) {
+        ctx.fillStyle = 'yellow';
+        ctx.fillText(`(${data[i].x.toFixed(2)}, ${data[i].y.toFixed(2)})`, x + 5, y - 5);
+      }
+    }
+    
+    if(data.length > 1) {
+      drawCurve();
+      drawPartitionLine();
+      
+      // Display logistic regression line equation
+      ctx.fillStyle = 'white';
+      ctx.fillText(`y = 1 / (1 + e^(-(${m.toFixed(2)} * x + ${b.toFixed(2)})))`, 10, canvas.height - 20);
+    }
+  }
+
+  function logisticRegression() {
+    // Hyperparameters
+    var learningRate = 0.1;
+    var epochs = 1000;
+
+    // Initialize parameters
+    var theta0 = 0; // Intercept
+    var theta1 = 0; // Slope
+
+    // Gradient Descent
+    for (var epoch = 0; epoch < epochs; epoch++) {
+      var theta0Gradient = 0;
+      var theta1Gradient = 0;
+
+      for (var i = 0; i < data.length; i++) {
+        var x = data[i].x;
+        var y = (data[i].color === 'red') ? 1 : 0; // Red as 1, Blue as 0
+        var predictedY = sigmoid(theta0 + theta1 * x);
+
+        // Partial derivatives
+        theta0Gradient += (predictedY - y);
+        theta1Gradient += (predictedY - y) * x;
+      }
+
+      // Update parameters
+      theta0 -= (learningRate / data.length) * theta0Gradient;
+      theta1 -= (learningRate / data.length) * theta1Gradient;
+    }
+
+    // Update m and b
+    m = theta1;
+    b = theta0;
+  }
+
+  function sigmoid(z) {
+    return 1 / (1 + Math.exp(-z));
+  }
+
+  function drawCurve() {
+    ctx.strokeStyle = 'white';
+    ctx.beginPath();
+    for(var x = 0; x <= 1; x += 0.01) {
+      var y = logisticFunction(x);
+      var canvasX = map(x, 0, 1, 0, canvas.width);
+      var canvasY = map(y, 0, 1, canvas.height, 0);
+      if (x === 0) {
+        ctx.moveTo(canvasX, canvasY);
+      } else {
+        ctx.lineTo(canvasX, canvasY);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'white';
+    ctx.fillText('Probability Curve', canvasX + 10, canvasY);
+  }
+
+  function drawPartitionLine() {
+    var x = -b / m; // x-coordinate where the decision boundary (y = 0.5) occurs
+    var canvasX = map(x, 0, 1, 0, canvas.width);
+    ctx.strokeStyle = 'yellow';
+    ctx.beginPath();
+    ctx.moveTo(canvasX, 0);
+    ctx.lineTo(canvasX, canvas.height);
+    ctx.stroke();
+    ctx.fillStyle = 'yellow';
+    ctx.fillText('Decision Boundary', canvasX + 10, canvas.height / 2);
+  }
+
+  function logisticFunction(x) {
+    var z = m * x + b;
+    return 1 / (1 + Math.exp(-z));
+  }
+
+  function map(value, start1, stop1, start2, stop2) {
+    return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+  }
+});
+</script>
+</body>
+</html>

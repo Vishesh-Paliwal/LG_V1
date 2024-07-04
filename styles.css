@@ -1,0 +1,15 @@
+  canvas {
+    display: block;
+    margin: auto;
+    border: 2px solid black;
+    background-color: black;
+  }
+
+  #regressionCanvas{
+    margin-top: 10%;
+  }
+
+  #blueButton{
+    margin-left: 35%;
+  }
+  
